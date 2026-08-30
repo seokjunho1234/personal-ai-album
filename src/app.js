@@ -5,6 +5,7 @@ const el = {
   input: $("#photoInput"), gallery: $("#gallery"), empty: $("#emptyState"), photoCount: $("#photoCount"), peopleCount: $("#peopleCount"), favoriteCount: $("#favoriteCount"),
   dialog: $("#photoDialog"), dialogImage: $("#dialogImage"), favoriteButton: $("#favoriteButton"), deleteButton: $("#deleteButton"), closeDialog: $("#closeDialog"), toast: $("#toast"), infoDialog: $("#infoDialog"),
   albumList: $("#albumList"), selectButton: $("#selectPhotosButton"), selectionBar: $("#selectionBar"), selectionCount: $("#selectionCount"), cancelSelection: $("#cancelSelection"), makeAlbum: $("#makeAlbumButton"),
+  deleteSelected: $("#deleteSelected"),
   albumDialog: $("#albumDialog"), albumForm: $("#albumForm"), albumName: $("#albumName"), cancelAlbum: $("#cancelAlbum"),
   exportBackup: $("#exportBackup"), backupInput: $("#backupInput"), storageUsage: $("#storageUsage"),
   myboxSettings: $("#myboxSettings"), syncAll: $("#syncAll"), myboxDialog: $("#myboxDialog"), myboxForm: $("#myboxForm"),
@@ -147,6 +148,7 @@ function render() {
   el.selectButton.textContent = selectionMode ? "선택 중" : "사진 선택";
   el.selectionCount.textContent = `${selectedPhotoIds.size}장 선택`;
   el.makeAlbum.disabled = selectedPhotoIds.size === 0;
+  el.deleteSelected.disabled = selectedPhotoIds.size === 0;
   const visible = currentPhotos();
   el.gallery.replaceChildren(); el.photoCount.textContent = photos.length;
   el.favoriteCount.textContent = photos.filter((photo) => photo.favorite).length;
@@ -200,6 +202,15 @@ el.deleteButton.addEventListener("click", async () => { if (!selectedId || !conf
 document.querySelectorAll(".filter[data-filter]").forEach((button) => button.addEventListener("click", () => { activeFilter = button.dataset.filter; document.querySelectorAll(".filter[data-filter]").forEach((item) => item.classList.toggle("active", item === button)); render(); }));
 el.selectButton.addEventListener("click", () => { selectionMode = !selectionMode; selectedPhotoIds.clear(); render(); });
 el.cancelSelection.addEventListener("click", stopSelection);
+el.deleteSelected.addEventListener("click", async () => {
+  const count = selectedPhotoIds.size;
+  if (!count || !confirm(`선택한 사진 ${count}장을 이 기기의 앨범에서 삭제할까요?\nMYBOX에 이미 동기화된 원본은 삭제되지 않습니다.`)) return;
+  el.deleteSelected.disabled = true;
+  for (const id of selectedPhotoIds) await removePhoto(id);
+  photos = photos.filter((photo) => !selectedPhotoIds.has(photo.id));
+  stopSelection();
+  showToast(`${count}장의 사진을 삭제했어요.`);
+});
 el.makeAlbum.addEventListener("click", () => { el.albumName.value = ""; el.albumDialog.showModal(); el.albumName.focus(); });
 el.cancelAlbum.addEventListener("click", () => el.albumDialog.close());
 el.albumForm.addEventListener("submit", async (event) => {
