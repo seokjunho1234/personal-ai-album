@@ -1,12 +1,45 @@
-const CACHE = "personal-ai-album-v6";
-const APP_SHELL = ["./", "./index.html", "./manifest.webmanifest", "./src/styles.css", "./src/app.js", "./src/db.js", "./icons/icon.svg"];
-self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL))));
-self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))));
+const CACHE = "personal-ai-album-v7";
+const APP_SHELL = [
+  "./",
+  "./index.html",
+  "./manifest.webmanifest?v=7",
+  "./src/styles.css?v=7",
+  "./src/app.js?v=7",
+  "./src/db.js",
+  "./icons/icon.svg",
+];
+
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(Promise.all([
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))),
+    self.clients.claim(),
+  ]));
+});
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return (await caches.match(request)) ?? caches.match("./index.html");
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-    const copy = response.clone();
-    caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-    return response;
-  })));
+  const url = new URL(event.request.url);
+  if (event.request.mode === "navigate" || (url.origin === self.location.origin && ["script", "style", "manifest"].includes(event.request.destination))) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
 });

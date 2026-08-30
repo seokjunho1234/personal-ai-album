@@ -7,10 +7,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="소중한 순간" />
-    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="manifest" href="./manifest.webmanifest?v=7" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="./src/styles.css?v=7" />
     <title>소중한 순간</title>
   </head>
   <body>
@@ -31,7 +31,7 @@
           <p>사진은 이 기기에만 저장되며 외부 서버로 전송되지 않습니다.</p>
         </div>
         <label class="primary-button" for="photoInput">사진 추가</label>
-        <input id="photoInput" type="file" accept="image/*,video/*" multiple hidden />
+        <input id="photoInput" type="file" accept="image/*,video/*,video/quicktime,.heic,.heif,.jpg,.jpeg,.png,.gif,.mov,.mp4,.m4v" multiple hidden />
       </section>
 
       <section class="stats" aria-label="앨범 요약">
@@ -120,6 +120,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status"></div>
-    <script type="module" src="./src/app.js"></script>
+    <script type="module" src="./src/app.js?v=7"></script>
   </body>
 </html>
