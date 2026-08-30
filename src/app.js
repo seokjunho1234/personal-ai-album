@@ -3,7 +3,7 @@ import { getAlbums, getPhotos, removePhoto, saveAlbum, savePhoto } from "./db.js
 const $ = (selector) => document.querySelector(selector);
 const el = {
   input: $("#photoInput"), gallery: $("#gallery"), empty: $("#emptyState"), photoCount: $("#photoCount"), peopleCount: $("#peopleCount"), favoriteCount: $("#favoriteCount"),
-  dialog: $("#photoDialog"), dialogImage: $("#dialogImage"), favoriteButton: $("#favoriteButton"), deleteButton: $("#deleteButton"), closeDialog: $("#closeDialog"), toast: $("#toast"), infoDialog: $("#infoDialog"),
+  dialog: $("#photoDialog"), dialogImage: $("#dialogImage"), dialogVideo: $("#dialogVideo"), heroSlideshow: $("#heroSlideshow"), favoriteButton: $("#favoriteButton"), deleteButton: $("#deleteButton"), closeDialog: $("#closeDialog"), toast: $("#toast"), infoDialog: $("#infoDialog"),
   albumList: $("#albumList"), selectButton: $("#selectPhotosButton"), selectionBar: $("#selectionBar"), selectionCount: $("#selectionCount"), cancelSelection: $("#cancelSelection"), makeAlbum: $("#makeAlbumButton"),
   deleteSelected: $("#deleteSelected"),
   albumDialog: $("#albumDialog"), albumForm: $("#albumForm"), albumName: $("#albumName"), cancelAlbum: $("#cancelAlbum"),
@@ -14,6 +14,7 @@ const el = {
 
 let photos = [], albums = [], selectedId = null, activeFilter = "all", activeAlbumId = null, selectionMode = false;
 let selectedPhotoIds = new Set(), objectUrls = [];
+let heroTimer = null;
 const MYBOX_SYNC_URL = "https://personal-ai-album-sync.sjunho0304.workers.dev";
 const SYNC_KEY_STORAGE = "personal-ai-album-sync-key";
 let syncKey = localStorage.getItem(SYNC_KEY_STORAGE) ?? "";
@@ -129,6 +130,22 @@ function currentPhotos() {
   return [...result].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+function renderHero() {
+  if (heroTimer) window.clearInterval(heroTimer);
+  el.heroSlideshow.replaceChildren();
+  const images = photos.filter((photo) => photo.type?.startsWith("image/")).sort((a, b) => b.addedAt - a.addedAt).slice(0, 6);
+  images.forEach((photo, index) => {
+    const image = document.createElement("img"), url = URL.createObjectURL(photo.blob);
+    objectUrls.push(url); image.src = url; image.alt = ""; image.className = index === 0 ? "active" : ""; el.heroSlideshow.append(image);
+  });
+  if (images.length > 1) {
+    let active = 0;
+    heroTimer = window.setInterval(() => {
+      const slides = [...el.heroSlideshow.children]; slides[active]?.classList.remove("active"); active = (active + 1) % slides.length; slides[active]?.classList.add("active");
+    }, 4500);
+  }
+}
+
 function renderAlbums() {
   el.albumList.replaceChildren();
   [{ id: null, name: "모든 사진", count: photos.length }, ...albums.map((album) => ({ ...album, count: photos.filter((photo) => photo.albumIds?.includes(album.id)).length }))]
@@ -143,6 +160,7 @@ function renderAlbums() {
 
 function render() {
   objectUrls.forEach((url) => URL.revokeObjectURL(url)); objectUrls = [];
+  renderHero();
   renderAlbums();
   el.selectionBar.hidden = !selectionMode;
   el.selectButton.textContent = selectionMode ? "선택 중" : "사진 선택";
@@ -160,9 +178,13 @@ function render() {
     const group = document.createElement("section"), heading = document.createElement("h2"), grid = document.createElement("div");
     group.className = "date-group"; heading.textContent = date; grid.className = "photo-grid";
     items.forEach((photo) => {
-      const url = URL.createObjectURL(photo.blob), button = document.createElement("button"), image = document.createElement("img");
+      const url = URL.createObjectURL(photo.blob), button = document.createElement("button"), media = document.createElement(photo.type?.startsWith("video/") ? "video" : "img");
       objectUrls.push(url); button.className = `photo-card${selectedPhotoIds.has(photo.id) ? " selected" : ""}`;
-      image.src = url; image.alt = photo.name; image.loading = "lazy"; button.append(image);
+      media.src = url;
+      if (media instanceof HTMLImageElement) { media.alt = photo.name; media.loading = "lazy"; }
+      else { media.muted = true; media.preload = "metadata"; media.playsInline = true; button.classList.add("video-card"); }
+      button.append(media);
+      if (photo.type?.startsWith("video/")) { const play = document.createElement("span"); play.className = "video-mark"; play.textContent = "▶"; button.append(play); }
       const badge = document.createElement("span");
       if (selectionMode) { badge.className = "selection-mark"; badge.textContent = selectedPhotoIds.has(photo.id) ? "✓" : ""; button.append(badge); }
       else if (photo.favorite) { badge.className = "heart"; badge.textContent = "♥"; button.append(badge); }
@@ -180,13 +202,17 @@ function togglePhoto(id) { selectedPhotoIds.has(id) ? selectedPhotoIds.delete(id
 function stopSelection() { selectionMode = false; selectedPhotoIds.clear(); render(); }
 function openPhoto(id) {
   const photo = photos.find((item) => item.id === id); if (!photo) return; selectedId = id;
-  const url = URL.createObjectURL(photo.blob); objectUrls.push(url); el.dialogImage.src = url;
+  const url = URL.createObjectURL(photo.blob); objectUrls.push(url);
+  const isVideo = photo.type?.startsWith("video/");
+  el.dialogImage.hidden = isVideo; el.dialogVideo.hidden = !isVideo;
+  if (isVideo) { el.dialogVideo.src = url; el.dialogImage.removeAttribute("src"); }
+  else { el.dialogImage.src = url; el.dialogVideo.removeAttribute("src"); }
   el.favoriteButton.textContent = photo.favorite ? "♥ 즐겨찾기 해제" : "♡ 즐겨찾기"; el.dialog.showModal();
 }
 
 async function addFiles(fileList) {
-  const files = [...fileList].filter((file) => file.type.startsWith("image/")); if (!files.length) return;
-  showToast(`${files.length}장의 사진을 저장하고 있어요.`);
+  const files = [...fileList].filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/")); if (!files.length) return;
+  showToast(`${files.length}개의 사진·비디오를 저장하고 있어요.`);
   for (const file of files) {
     const photo = { id: makeId("photo"), name: file.name, type: file.type, size: file.size, createdAt: file.lastModified || Date.now(), addedAt: Date.now(), favorite: false, people: [], albumIds: [], blob: file };
     await savePhoto(photo); photos.push(photo);
@@ -196,7 +222,7 @@ async function addFiles(fileList) {
 }
 
 el.input.addEventListener("change", (event) => addFiles(event.target.files).catch(() => showToast("사진 저장에 실패했어요.")));
-el.closeDialog.addEventListener("click", () => el.dialog.close());
+el.closeDialog.addEventListener("click", () => { el.dialogVideo.pause(); el.dialog.close(); });
 el.favoriteButton.addEventListener("click", async () => { const photo = photos.find((item) => item.id === selectedId); if (!photo) return; photo.favorite = !photo.favorite; await savePhoto(photo); el.dialog.close(); render(); });
 el.deleteButton.addEventListener("click", async () => { if (!selectedId || !confirm("이 기기의 앨범에서 사진을 삭제할까요?")) return; await removePhoto(selectedId); photos = photos.filter((photo) => photo.id !== selectedId); el.dialog.close(); render(); showToast("사진을 삭제했어요."); });
 document.querySelectorAll(".filter[data-filter]").forEach((button) => button.addEventListener("click", () => { activeFilter = button.dataset.filter; document.querySelectorAll(".filter[data-filter]").forEach((item) => item.classList.toggle("active", item === button)); render(); }));

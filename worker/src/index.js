@@ -37,9 +37,9 @@ async function uploadPhoto(request, env) {
   const parentId = request.headers.get("X-Parent-Id")?.trim();
   const contentType = request.headers.get("Content-Type") ?? "application/octet-stream";
   const fileSize = Number(request.headers.get("Content-Length") ?? 0);
-  if (!fileName || !fileSize || fileSize > 25 * 1024 * 1024) {
+  if (!fileName || !fileSize || fileSize > 90 * 1024 * 1024) {
     console.warn("upload_validation_failed", { hasFileName: Boolean(fileName), fileSize });
-    return json(request, env, { error: "사진 이름 또는 크기가 올바르지 않습니다. 최대 25MB까지 지원합니다." }, 400);
+    return json(request, env, { error: "파일 이름 또는 크기가 올바르지 않습니다. 파일당 최대 90MB까지 지원합니다." }, 400);
   }
 
   const metadata = { fileName, fileSize, isOverwrite: false };
