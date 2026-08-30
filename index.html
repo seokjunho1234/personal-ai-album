@@ -7,10 +7,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="소중한 순간" />
-    <link rel="manifest" href="./manifest.webmanifest?v=7" />
+    <link rel="manifest" href="./manifest.webmanifest?v=8" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./src/styles.css?v=7" />
+    <link rel="stylesheet" href="./src/styles.css?v=8" />
     <title>소중한 순간</title>
   </head>
   <body>
@@ -69,7 +69,7 @@
 
       <section id="selectionBar" class="selection-bar" hidden>
         <strong id="selectionCount">0장 선택</strong>
-        <div><button id="cancelSelection">취소</button><button id="deleteSelected" class="selection-delete" disabled>선택 삭제</button><button id="makeAlbumButton" class="secondary-button" disabled>새 앨범</button></div>
+        <div><button id="cancelSelection" type="button">취소</button><button id="deleteSelected" class="selection-delete" type="button" disabled>선택 삭제</button><button id="makeAlbumButton" class="secondary-button" type="button" disabled>새 앨범</button></div>
       </section>
 
       <section id="emptyState" class="empty-state">
@@ -100,10 +100,12 @@
     </dialog>
 
     <dialog id="albumDialog" class="info-dialog album-dialog">
-      <form id="albumForm" method="dialog">
+      <form id="albumForm">
         <h2>새 앨범</h2>
+        <p id="albumSummary">선택한 사진으로 앨범을 만듭니다.</p>
         <label for="albumName">앨범 이름</label>
         <input id="albumName" name="albumName" maxlength="40" placeholder="예: 제주도 여행" autocomplete="off" required />
+        <p id="albumError" class="form-error" role="alert"></p>
         <div class="form-actions"><button id="cancelAlbum" type="button">취소</button><button class="secondary-button" type="submit">만들기</button></div>
       </form>
     </dialog>
@@ -120,6 +122,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status"></div>
-    <script type="module" src="./src/app.js?v=7"></script>
+    <script type="module" src="./src/app.js?v=8"></script>
   </body>
 </html>

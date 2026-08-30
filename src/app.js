@@ -6,7 +6,7 @@ const el = {
   dialog: $("#photoDialog"), dialogImage: $("#dialogImage"), dialogVideo: $("#dialogVideo"), heroSlideshow: $("#heroSlideshow"), favoriteButton: $("#favoriteButton"), deleteButton: $("#deleteButton"), closeDialog: $("#closeDialog"), toast: $("#toast"), infoDialog: $("#infoDialog"),
   albumList: $("#albumList"), selectButton: $("#selectPhotosButton"), selectionBar: $("#selectionBar"), selectionCount: $("#selectionCount"), cancelSelection: $("#cancelSelection"), makeAlbum: $("#makeAlbumButton"),
   deleteSelected: $("#deleteSelected"),
-  albumDialog: $("#albumDialog"), albumForm: $("#albumForm"), albumName: $("#albumName"), cancelAlbum: $("#cancelAlbum"),
+  albumDialog: $("#albumDialog"), albumForm: $("#albumForm"), albumName: $("#albumName"), albumSummary: $("#albumSummary"), albumError: $("#albumError"), cancelAlbum: $("#cancelAlbum"),
   exportBackup: $("#exportBackup"), backupInput: $("#backupInput"), storageUsage: $("#storageUsage"),
   myboxSettings: $("#myboxSettings"), syncAll: $("#syncAll"), myboxDialog: $("#myboxDialog"), myboxForm: $("#myboxForm"),
   myboxStatus: $("#myboxStatus"), syncKeyInput: $("#syncKeyInput"), disconnectMybox: $("#disconnectMybox"), cancelMybox: $("#cancelMybox"),
@@ -237,13 +237,25 @@ el.deleteSelected.addEventListener("click", async () => {
   stopSelection();
   showToast(`${count}장의 사진을 삭제했어요.`);
 });
-el.makeAlbum.addEventListener("click", () => { el.albumName.value = ""; el.albumDialog.showModal(); el.albumName.focus(); });
+el.makeAlbum.addEventListener("click", () => {
+  if (!selectedPhotoIds.size) { showToast("앨범에 넣을 사진을 먼저 선택해 주세요."); return; }
+  el.albumName.value = ""; el.albumError.textContent = ""; el.albumSummary.textContent = `선택한 사진·비디오 ${selectedPhotoIds.size}개로 앨범을 만듭니다.`;
+  el.albumDialog.showModal(); window.setTimeout(() => el.albumName.focus(), 100);
+});
 el.cancelAlbum.addEventListener("click", () => el.albumDialog.close());
 el.albumForm.addEventListener("submit", async (event) => {
-  event.preventDefault(); const name = el.albumName.value.trim(); if (!name || !selectedPhotoIds.size) return;
-  const album = { id: makeId("album"), name, createdAt: Date.now() }; await saveAlbum(album); albums.push(album);
-  for (const photo of photos.filter((item) => selectedPhotoIds.has(item.id))) { photo.albumIds = [...new Set([...(photo.albumIds ?? []), album.id])]; await savePhoto(photo); }
-  el.albumDialog.close(); activeAlbumId = album.id; stopSelection(); showToast(`‘${name}’ 앨범을 만들었어요.`);
+  event.preventDefault();
+  const name = el.albumName.value.trim(), chosenIds = [...selectedPhotoIds], submitButton = el.albumForm.querySelector('[type="submit"]');
+  if (!name) { el.albumError.textContent = "앨범 이름을 입력해 주세요."; return; }
+  if (!chosenIds.length) { el.albumError.textContent = "선택한 사진이 없습니다. 다시 선택해 주세요."; return; }
+  submitButton.disabled = true; submitButton.textContent = "만드는 중"; el.albumError.textContent = "";
+  try {
+    const album = { id: makeId("album"), name, createdAt: Date.now() };
+    await saveAlbum(album);
+    for (const photo of photos.filter((item) => chosenIds.includes(item.id))) { photo.albumIds = [...new Set([...(photo.albumIds ?? []), album.id])]; await savePhoto(photo); }
+    albums.push(album); el.albumDialog.close(); activeAlbumId = album.id; stopSelection(); showToast(`‘${name}’ 앨범을 만들었어요.`);
+  } catch (error) { el.albumError.textContent = `앨범을 만들지 못했습니다: ${error.message || "저장소 오류"}`; }
+  finally { submitButton.disabled = false; submitButton.textContent = "만들기"; }
 });
 el.exportBackup.addEventListener("click", exportBackup);
 el.backupInput.addEventListener("change", (event) => importBackup(event.target.files[0]));
