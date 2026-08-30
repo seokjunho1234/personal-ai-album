@@ -58,6 +58,8 @@
           <p id="storageUsage">저장 공간을 확인하고 있어요.</p>
         </div>
         <div class="backup-actions">
+          <button id="myboxSettings" class="backup-button">MYBOX 연결</button>
+          <button id="syncAll" class="backup-button" hidden>전체 동기화</button>
           <button id="exportBackup" class="backup-button">백업 파일 저장</button>
           <label for="backupInput" class="backup-button">백업 불러오기</label>
           <input id="backupInput" type="file" accept="application/json,.json,.album-backup" hidden />
@@ -101,6 +103,17 @@
         <label for="albumName">앨범 이름</label>
         <input id="albumName" name="albumName" maxlength="40" placeholder="예: 제주도 여행" autocomplete="off" required />
         <div class="form-actions"><button id="cancelAlbum" type="button">취소</button><button class="secondary-button" type="submit">만들기</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="myboxDialog" class="info-dialog mybox-dialog">
+      <form id="myboxForm">
+        <p class="eyebrow">클라우드 백업</p>
+        <h2>MYBOX 연결</h2>
+        <p id="myboxStatus">Cloudflare에 등록한 SYNC_KEY를 입력하세요. 키는 이 기기에만 저장됩니다.</p>
+        <label for="syncKeyInput">동기화 키</label>
+        <input id="syncKeyInput" type="password" minlength="16" autocomplete="off" placeholder="SYNC_KEY" required />
+        <div class="form-actions"><button id="disconnectMybox" type="button">연결 해제</button><button id="cancelMybox" type="button">취소</button><button class="secondary-button" type="submit">연결 확인</button></div>
       </form>
     </dialog>
 

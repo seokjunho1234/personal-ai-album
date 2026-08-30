@@ -7,16 +7,57 @@ const el = {
   albumList: $("#albumList"), selectButton: $("#selectPhotosButton"), selectionBar: $("#selectionBar"), selectionCount: $("#selectionCount"), cancelSelection: $("#cancelSelection"), makeAlbum: $("#makeAlbumButton"),
   albumDialog: $("#albumDialog"), albumForm: $("#albumForm"), albumName: $("#albumName"), cancelAlbum: $("#cancelAlbum"),
   exportBackup: $("#exportBackup"), backupInput: $("#backupInput"), storageUsage: $("#storageUsage"),
+  myboxSettings: $("#myboxSettings"), syncAll: $("#syncAll"), myboxDialog: $("#myboxDialog"), myboxForm: $("#myboxForm"),
+  myboxStatus: $("#myboxStatus"), syncKeyInput: $("#syncKeyInput"), disconnectMybox: $("#disconnectMybox"), cancelMybox: $("#cancelMybox"),
 };
 
 let photos = [], albums = [], selectedId = null, activeFilter = "all", activeAlbumId = null, selectionMode = false;
 let selectedPhotoIds = new Set(), objectUrls = [];
+const MYBOX_SYNC_URL = "https://personal-ai-album-sync.sjunho0304.workers.dev";
+const SYNC_KEY_STORAGE = "personal-ai-album-sync-key";
+let syncKey = localStorage.getItem(SYNC_KEY_STORAGE) ?? "";
 const makeId = (prefix) => `${prefix}-${Date.now()}-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
 const formatDate = (time) => new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(time);
 
 function showToast(message) {
   el.toast.textContent = message; el.toast.classList.add("visible");
   window.setTimeout(() => el.toast.classList.remove("visible"), 2400);
+}
+
+async function syncRequest(path, options = {}) {
+  if (!syncKey) throw new Error("MYBOX 동기화 키가 필요합니다.");
+  const headers = new Headers(options.headers); headers.set("Authorization", `Bearer ${syncKey}`);
+  const response = await fetch(`${MYBOX_SYNC_URL}${path}`, { ...options, headers });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || `MYBOX 요청 실패 (${response.status})`);
+  return result;
+}
+
+async function verifyMyboxConnection() {
+  const storage = await syncRequest("/storage");
+  el.myboxStatus.textContent = `연결됨 · ${formatBytes(storage.usedBytes)} / ${formatBytes(storage.quotaBytes)} 사용 중`;
+  el.myboxSettings.textContent = "MYBOX 연결됨"; el.syncAll.hidden = false;
+  return storage;
+}
+
+async function syncPhoto(photo) {
+  if (!syncKey || photo.syncStatus === "synced") return;
+  photo.syncStatus = "syncing"; await savePhoto(photo); render();
+  try {
+    const result = await syncRequest("/upload", { method: "POST", headers: { "Content-Type": photo.type || "application/octet-stream", "X-File-Name": encodeURIComponent(photo.name) }, body: photo.blob });
+    photo.syncStatus = "synced"; photo.syncedAt = Date.now(); photo.myboxResult = result.result ?? null;
+  } catch (error) { photo.syncStatus = "error"; photo.syncError = error.message; }
+  await savePhoto(photo); render();
+}
+
+async function syncAllPhotos() {
+  const targets = photos.filter((photo) => photo.syncStatus !== "synced");
+  if (!targets.length) { showToast("모든 사진이 이미 동기화됐어요."); return; }
+  el.syncAll.disabled = true;
+  for (let index = 0; index < targets.length; index += 1) { showToast(`${index + 1}/${targets.length} MYBOX에 업로드 중`); await syncPhoto(targets[index]); }
+  el.syncAll.disabled = false;
+  const failures = targets.filter((photo) => photo.syncStatus === "error").length;
+  showToast(failures ? `${failures}장의 업로드를 다시 시도해 주세요.` : "MYBOX 동기화를 완료했어요.");
 }
 
 function formatBytes(bytes = 0) {
@@ -123,6 +164,10 @@ function render() {
       const badge = document.createElement("span");
       if (selectionMode) { badge.className = "selection-mark"; badge.textContent = selectedPhotoIds.has(photo.id) ? "✓" : ""; button.append(badge); }
       else if (photo.favorite) { badge.className = "heart"; badge.textContent = "♥"; button.append(badge); }
+      if (!selectionMode && syncKey) {
+        const syncBadge = document.createElement("span"), labels = { syncing: "업로드 중", synced: "MYBOX ✓", error: "재시도 필요" };
+        syncBadge.className = `sync-badge ${photo.syncStatus ?? ""}`; syncBadge.textContent = labels[photo.syncStatus] ?? "미동기화"; button.append(syncBadge);
+      }
       button.addEventListener("click", () => selectionMode ? togglePhoto(photo.id) : openPhoto(photo.id)); grid.append(button);
     });
     group.append(heading, grid); el.gallery.append(group);
@@ -143,6 +188,7 @@ async function addFiles(fileList) {
   for (const file of files) {
     const photo = { id: makeId("photo"), name: file.name, type: file.type, size: file.size, createdAt: file.lastModified || Date.now(), addedAt: Date.now(), favorite: false, people: [], albumIds: [], blob: file };
     await savePhoto(photo); photos.push(photo);
+    if (syncKey) await syncPhoto(photo);
   }
   el.input.value = ""; render(); showToast("사진을 안전하게 저장했어요.");
 }
@@ -164,7 +210,20 @@ el.albumForm.addEventListener("submit", async (event) => {
 });
 el.exportBackup.addEventListener("click", exportBackup);
 el.backupInput.addEventListener("change", (event) => importBackup(event.target.files[0]));
+el.myboxSettings.addEventListener("click", () => { el.syncKeyInput.value = syncKey; el.myboxDialog.showModal(); });
+el.cancelMybox.addEventListener("click", () => el.myboxDialog.close());
+el.disconnectMybox.addEventListener("click", () => { syncKey = ""; localStorage.removeItem(SYNC_KEY_STORAGE); el.syncKeyInput.value = ""; el.myboxSettings.textContent = "MYBOX 연결"; el.syncAll.hidden = true; el.myboxDialog.close(); render(); showToast("이 기기의 MYBOX 연결을 해제했어요."); });
+el.myboxForm.addEventListener("submit", async (event) => {
+  event.preventDefault(); const candidate = el.syncKeyInput.value.trim(); if (!candidate) return;
+  const previous = syncKey; syncKey = candidate; el.myboxStatus.textContent = "연결을 확인하고 있어요.";
+  try { await verifyMyboxConnection(); localStorage.setItem(SYNC_KEY_STORAGE, syncKey); el.myboxDialog.close(); render(); showToast("MYBOX에 연결했어요."); }
+  catch (error) { syncKey = previous; el.myboxStatus.textContent = error.message; }
+});
+el.syncAll.addEventListener("click", () => syncAllPhotos().catch((error) => showToast(error.message)));
 $("#settingsButton").addEventListener("click", () => el.infoDialog.showModal());
 $("#closeInfo").addEventListener("click", () => el.infoDialog.close());
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
-try { [photos, albums] = await Promise.all([getPhotos(), getAlbums()]); render(); } catch { showToast("기기 저장소를 열 수 없어요."); }
+try {
+  [photos, albums] = await Promise.all([getPhotos(), getAlbums()]); render();
+  if (syncKey) verifyMyboxConnection().catch(() => { el.myboxSettings.textContent = "MYBOX 다시 연결"; el.syncAll.hidden = true; });
+} catch { showToast("기기 저장소를 열 수 없어요."); }

@@ -1,4 +1,4 @@
-const CACHE = "personal-ai-album-v3";
+const CACHE = "personal-ai-album-v4";
 const APP_SHELL = ["./", "./index.html", "./manifest.webmanifest", "./src/styles.css", "./src/app.js", "./src/db.js", "./icons/icon.svg"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL))));
 self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))));
