@@ -37,15 +37,32 @@ async function uploadPhoto(request, env) {
   const parentId = request.headers.get("X-Parent-Id")?.trim();
   const contentType = request.headers.get("Content-Type") ?? "application/octet-stream";
   const fileSize = Number(request.headers.get("Content-Length") ?? 0);
-  if (!fileName || !fileSize || fileSize > 25 * 1024 * 1024) return json(request, env, { error: "사진 이름 또는 크기가 올바르지 않습니다. 최대 25MB까지 지원합니다." }, 400);
+  if (!fileName || !fileSize || fileSize > 25 * 1024 * 1024) {
+    console.warn("upload_validation_failed", { hasFileName: Boolean(fileName), fileSize });
+    return json(request, env, { error: "사진 이름 또는 크기가 올바르지 않습니다. 최대 25MB까지 지원합니다." }, 400);
+  }
 
   const metadata = { fileName, fileSize, isOverwrite: false };
   if (parentId) metadata.parentId = parentId;
   const createResponse = await myboxRequest(env, "/drive/files", { method: "POST", body: JSON.stringify(metadata) });
-  if (!createResponse.ok) return json(request, env, { error: "MYBOX 업로드 준비에 실패했습니다.", detail: await createResponse.text() }, createResponse.status);
+  if (!createResponse.ok) {
+    const detail = await createResponse.text();
+    console.error("mybox_prepare_failed", { status: createResponse.status });
+    return json(request, env, { error: "MYBOX 업로드 준비에 실패했습니다.", detail }, createResponse.status);
+  }
   const { uploadUrl } = await createResponse.json();
-  const uploadResponse = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: request.body });
-  if (!uploadResponse.ok) return json(request, env, { error: "MYBOX 파일 업로드에 실패했습니다.", status: uploadResponse.status }, 502);
+  const fileBlob = new Blob([await request.arrayBuffer()], { type: contentType });
+  const uploadForm = new FormData();
+  uploadForm.append("Filedata", fileBlob, fileName);
+  const uploadResponse = await fetch(uploadUrl, { method: "POST", body: uploadForm });
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text();
+    let safeError = {};
+    try { const parsed = JSON.parse(errorText); safeError = { code: parsed.code, message: parsed.message }; } catch { safeError = { message: uploadResponse.statusText }; }
+    console.error("mybox_upload_failed", { status: uploadResponse.status, ...safeError });
+    return json(request, env, { error: "MYBOX 파일 업로드에 실패했습니다.", status: uploadResponse.status, ...safeError }, 502);
+  }
+  console.log("mybox_upload_succeeded", { fileSize });
   const responseText = await uploadResponse.text();
   let result = null;
   try { result = responseText ? JSON.parse(responseText) : null; } catch { result = { uploaded: true }; }
