@@ -3,4 +3,6 @@ Thumbs.db
 node_modules/
 .env
 .env.*
+.dev.vars
+worker/.wrangler/
 dist/
