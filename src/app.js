@@ -15,6 +15,7 @@ const el = {
 let photos = [], albums = [], selectedId = null, activeFilter = "all", activeAlbumId = null, selectionMode = false;
 let selectedPhotoIds = new Set(), objectUrls = [];
 let heroTimer = null;
+let toastTimer = null;
 const MYBOX_SYNC_URL = "https://personal-ai-album-sync.sjunho0304.workers.dev";
 const SYNC_KEY_STORAGE = "personal-ai-album-sync-key";
 let syncKey = localStorage.getItem(SYNC_KEY_STORAGE) ?? "";
@@ -22,8 +23,28 @@ const makeId = (prefix) => `${prefix}-${Date.now()}-${crypto.randomUUID?.() ?? M
 const formatDate = (time) => new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(time);
 
 function showToast(message) {
+  if (toastTimer) window.clearTimeout(toastTimer);
   el.toast.textContent = message; el.toast.classList.add("visible");
-  window.setTimeout(() => el.toast.classList.remove("visible"), 2400);
+  toastTimer = window.setTimeout(() => el.toast.classList.remove("visible"), 2400);
+}
+
+function haptic(pattern = 12) {
+  if (typeof navigator.vibrate !== "function") return;
+  try { navigator.vibrate(pattern); } catch { /* Some browsers expose but block vibration. */ }
+}
+
+function installTouchFeedback() {
+  const interactiveSelector = "button, label[for]";
+  const release = (target) => target?.closest?.(interactiveSelector)?.classList.remove("is-pressed");
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target.closest(interactiveSelector);
+    if (!target || target.matches(":disabled")) return;
+    target.classList.add("is-pressed");
+    haptic();
+  }, { passive: true });
+  document.addEventListener("pointerup", (event) => release(event.target), { passive: true });
+  document.addEventListener("pointercancel", (event) => release(event.target), { passive: true });
+  document.addEventListener("pointerout", (event) => release(event.target), { passive: true });
 }
 
 async function syncRequest(path, options = {}) {
@@ -153,7 +174,7 @@ function renderAlbums() {
       const button = document.createElement("button");
       button.className = `album-chip${activeAlbumId === album.id ? " active" : ""}`;
       button.textContent = `${album.name} ${album.count}`;
-      button.addEventListener("click", () => { activeAlbumId = album.id; render(); });
+      button.addEventListener("click", () => { activeAlbumId = album.id; render(); showToast(`‘${album.name}’ 앨범을 열었어요.`); });
       el.albumList.append(button);
     });
 }
@@ -223,10 +244,10 @@ async function addFiles(fileList) {
 
 el.input.addEventListener("change", (event) => addFiles(event.target.files).catch(() => showToast("사진 저장에 실패했어요.")));
 el.closeDialog.addEventListener("click", () => { el.dialogVideo.pause(); el.dialog.close(); });
-el.favoriteButton.addEventListener("click", async () => { const photo = photos.find((item) => item.id === selectedId); if (!photo) return; photo.favorite = !photo.favorite; await savePhoto(photo); el.dialog.close(); render(); });
+el.favoriteButton.addEventListener("click", async () => { const photo = photos.find((item) => item.id === selectedId); if (!photo) return; photo.favorite = !photo.favorite; await savePhoto(photo); el.dialog.close(); render(); showToast(photo.favorite ? "즐겨찾기에 추가했어요." : "즐겨찾기에서 해제했어요."); });
 el.deleteButton.addEventListener("click", async () => { if (!selectedId || !confirm("이 기기의 앨범에서 사진을 삭제할까요?")) return; await removePhoto(selectedId); photos = photos.filter((photo) => photo.id !== selectedId); el.dialog.close(); render(); showToast("사진을 삭제했어요."); });
-document.querySelectorAll(".filter[data-filter]").forEach((button) => button.addEventListener("click", () => { activeFilter = button.dataset.filter; document.querySelectorAll(".filter[data-filter]").forEach((item) => item.classList.toggle("active", item === button)); render(); }));
-el.selectButton.addEventListener("click", () => { selectionMode = !selectionMode; selectedPhotoIds.clear(); render(); });
+document.querySelectorAll(".filter[data-filter]").forEach((button) => button.addEventListener("click", () => { activeFilter = button.dataset.filter; document.querySelectorAll(".filter[data-filter]").forEach((item) => item.classList.toggle("active", item === button)); render(); showToast(`${button.textContent.trim()} 보기로 바꿨어요.`); }));
+el.selectButton.addEventListener("click", () => { selectionMode = !selectionMode; selectedPhotoIds.clear(); render(); showToast(selectionMode ? "앨범에 넣을 사진을 선택해 주세요." : "사진 선택을 종료했어요."); });
 el.cancelSelection.addEventListener("click", stopSelection);
 el.deleteSelected.addEventListener("click", async () => {
   const count = selectedPhotoIds.size;
@@ -271,6 +292,7 @@ el.myboxForm.addEventListener("submit", async (event) => {
 el.syncAll.addEventListener("click", () => syncAllPhotos().catch((error) => showToast(error.message)));
 $("#settingsButton").addEventListener("click", () => el.infoDialog.showModal());
 $("#closeInfo").addEventListener("click", () => el.infoDialog.close());
+installTouchFeedback();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 try {
   [photos, albums] = await Promise.all([getPhotos(), getAlbums()]); render();
