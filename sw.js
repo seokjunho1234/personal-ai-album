@@ -1,10 +1,10 @@
-const CACHE = "personal-ai-album-v10";
+const CACHE = "personal-ai-album-v11";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./manifest.webmanifest?v=10",
-  "./src/styles.css?v=10",
-  "./src/app.js?v=10",
+  "./manifest.webmanifest?v=11",
+  "./src/styles.css?v=11",
+  "./src/app.js?v=11",
   "./src/db.js",
   "./icons/icon.svg",
 ];

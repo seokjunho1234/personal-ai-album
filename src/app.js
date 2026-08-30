@@ -122,7 +122,7 @@ async function exportBackup() {
     for (const photo of photos) { const { blob, ...metadata } = photo; backupPhotos.push({ ...metadata, dataUrl: await blobToDataUrl(blob) }); }
     const payload = { format: "personal-ai-album", version: 1, exportedAt: new Date().toISOString(), albums, photos: backupPhotos };
     const file = new Blob([JSON.stringify(payload)], { type: "application/json" }), url = URL.createObjectURL(file), link = document.createElement("a");
-    link.href = url; link.download = `personal-album-${new Date().toISOString().slice(0, 10)}.album-backup.json`; link.click();
+    link.href = url; link.download = `sodam-${new Date().toISOString().slice(0, 10)}.album-backup.json`; link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000); showToast("백업 파일을 저장했어요.");
   } catch { showToast("백업 파일 생성에 실패했어요."); }
   finally { el.exportBackup.disabled = false; }

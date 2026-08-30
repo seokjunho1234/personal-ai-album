@@ -3,21 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f7f2ea" />
+    <meta name="theme-color" content="#fffaf4" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="소중한 순간" />
-    <link rel="manifest" href="./manifest.webmanifest?v=10" />
+    <meta name="apple-mobile-web-app-title" content="소담" />
+    <meta name="description" content="소중한 오늘을 소담히 담는 우리만의 앨범" />
+    <link rel="manifest" href="./manifest.webmanifest?v=11" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./src/styles.css?v=10" />
-    <title>소중한 순간</title>
+    <link rel="stylesheet" href="./src/styles.css?v=11" />
+    <title>소담 — 우리만의 앨범</title>
   </head>
   <body>
     <header class="topbar">
       <div>
-        <p class="eyebrow">나만의 비공개 앨범</p>
-        <h1>소중한 순간</h1>
+        <p class="eyebrow">우리만의 순간 보관함</p>
+        <h1><span class="brand-mark">소</span>소담</h1>
       </div>
       <button class="icon-button" id="settingsButton" aria-label="앱 정보">•••</button>
     </header>
@@ -26,16 +27,16 @@
       <section class="hero" id="hero">
         <div id="heroSlideshow" class="hero-slideshow" aria-hidden="true"></div>
         <div>
-          <p class="hero-kicker">오늘의 기억</p>
-          <h2>사진 속 순간을<br />한곳에 모아보세요.</h2>
-          <p>사진은 이 기기에만 저장되며 외부 서버로 전송되지 않습니다.</p>
+          <p class="hero-kicker">SODAM · PRIVATE ALBUM</p>
+          <h2>소중한 오늘을<br />소담히 담아요.</h2>
+          <p>사진과 영상을 차곡차곡 모아, 우리만의 이야기를 만들어보세요.</p>
         </div>
-        <label class="primary-button" for="photoInput">사진 추가</label>
+        <label class="primary-button" for="photoInput">＋ 순간 담기</label>
         <input id="photoInput" type="file" accept="image/*,video/*,video/quicktime,.heic,.heif,.jpg,.jpeg,.png,.gif,.mov,.mp4,.m4v" multiple hidden />
       </section>
 
       <section class="stats" aria-label="앨범 요약">
-        <article><strong id="photoCount">0</strong><span>사진</span></article>
+        <article><strong id="photoCount">0</strong><span>담은 순간</span></article>
         <article><strong id="peopleCount">0</strong><span>인물</span></article>
         <article><strong id="favoriteCount">0</strong><span>즐겨찾기</span></article>
       </section>
@@ -48,7 +49,7 @@
       </nav>
 
       <section class="album-section" aria-label="내 앨범">
-        <div class="section-heading"><h2>내 앨범</h2><span>사진을 골라 새 앨범으로 묶어보세요</span></div>
+        <div class="section-heading"><h2>소담한 앨범</h2><span>우리의 이야기를 앨범으로 묶어보세요</span></div>
         <div id="albumList" class="album-list"></div>
         <div id="albumActions" class="album-actions" hidden>
           <strong id="activeAlbumName"></strong>
@@ -59,8 +60,8 @@
 
       <section class="backup-panel" aria-label="백업 및 복원">
         <div>
-          <p class="eyebrow">내 데이터</p>
-          <h2>백업과 복원</h2>
+          <p class="eyebrow">소중하게 지키기</p>
+          <h2>보관과 복원</h2>
           <p id="storageUsage">저장 공간을 확인하고 있어요.</p>
         </div>
         <div class="backup-actions">
@@ -78,10 +79,10 @@
       </section>
 
       <section id="emptyState" class="empty-state">
-        <div class="empty-icon">♡</div>
-        <h2>아직 담긴 사진이 없어요</h2>
-        <p>첫 사진을 추가하면 날짜순으로 정리해드려요.</p>
-        <label class="secondary-button" for="photoInput">사진 선택하기</label>
+        <div class="empty-icon">소</div>
+        <h2>첫 순간을 기다리고 있어요</h2>
+        <p>사진이나 영상을 담으면 날짜순으로 차곡차곡 정리해드려요.</p>
+        <label class="secondary-button" for="photoInput">첫 순간 담기</label>
       </section>
 
       <section id="gallery" class="gallery" aria-live="polite"></section>
@@ -98,9 +99,9 @@
     </dialog>
 
     <dialog id="infoDialog" class="info-dialog">
-      <h2>소중한 순간</h2>
-      <p>현재 버전은 원본 사진과 앨범 정보를 이 기기의 브라우저 저장소에 보관합니다.</p>
-      <p>중요한 사진의 유일한 백업 용도로 사용하지 마세요. 다음 단계에서 MYBOX 백업과 기기 내 얼굴 분류를 연결할 예정입니다.</p>
+      <h2>소담</h2>
+      <p>소중한 오늘을 소담히 담는 우리만의 앨범입니다.</p>
+      <p>원본 사진과 앨범은 이 기기에 보관됩니다. MYBOX 동기화나 백업 파일 저장을 함께 사용하면 추억을 더 안전하게 지킬 수 있어요.</p>
       <button id="closeInfo" class="primary-button">확인</button>
     </dialog>
 
@@ -127,6 +128,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status"></div>
-    <script type="module" src="./src/app.js?v=10"></script>
+    <script type="module" src="./src/app.js?v=11"></script>
   </body>
 </html>
