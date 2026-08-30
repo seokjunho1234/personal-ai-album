@@ -6,6 +6,7 @@ const el = {
   dialog: $("#photoDialog"), dialogImage: $("#dialogImage"), favoriteButton: $("#favoriteButton"), deleteButton: $("#deleteButton"), closeDialog: $("#closeDialog"), toast: $("#toast"), infoDialog: $("#infoDialog"),
   albumList: $("#albumList"), selectButton: $("#selectPhotosButton"), selectionBar: $("#selectionBar"), selectionCount: $("#selectionCount"), cancelSelection: $("#cancelSelection"), makeAlbum: $("#makeAlbumButton"),
   albumDialog: $("#albumDialog"), albumForm: $("#albumForm"), albumName: $("#albumName"), cancelAlbum: $("#cancelAlbum"),
+  exportBackup: $("#exportBackup"), backupInput: $("#backupInput"), storageUsage: $("#storageUsage"),
 };
 
 let photos = [], albums = [], selectedId = null, activeFilter = "all", activeAlbumId = null, selectionMode = false;
@@ -16,6 +17,66 @@ const formatDate = (time) => new Intl.DateTimeFormat("ko-KR", { year: "numeric",
 function showToast(message) {
   el.toast.textContent = message; el.toast.classList.add("visible");
   window.setTimeout(() => el.toast.classList.remove("visible"), 2400);
+}
+
+function formatBytes(bytes = 0) {
+  if (!bytes) return "0 MB";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / (1024 ** index)).toFixed(index > 1 ? 1 : 0)} ${units[index]}`;
+}
+
+async function updateStorageUsage() {
+  const photoBytes = photos.reduce((total, photo) => total + (photo.blob?.size ?? photo.size ?? 0), 0);
+  if (!navigator.storage?.estimate) { el.storageUsage.textContent = `사진 원본 약 ${formatBytes(photoBytes)} 사용 중`; return; }
+  const estimate = await navigator.storage.estimate();
+  el.storageUsage.textContent = `앨범 사진 ${formatBytes(photoBytes)} · 앱 전체 ${formatBytes(estimate.usage)} / 기기 허용량 ${formatBytes(estimate.quota)}`;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob);
+  });
+}
+
+function dataUrlToBlob(dataUrl) {
+  const [header, encoded] = dataUrl.split(",");
+  if (!header?.startsWith("data:") || !encoded) throw new Error("잘못된 사진 데이터입니다.");
+  const type = header.match(/^data:([^;]+)/)?.[1] ?? "application/octet-stream";
+  const binary = atob(encoded), bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type });
+}
+
+async function exportBackup() {
+  if (!photos.length && !albums.length) { showToast("백업할 데이터가 없어요."); return; }
+  el.exportBackup.disabled = true; showToast("백업 파일을 만들고 있어요.");
+  try {
+    const backupPhotos = [];
+    for (const photo of photos) { const { blob, ...metadata } = photo; backupPhotos.push({ ...metadata, dataUrl: await blobToDataUrl(blob) }); }
+    const payload = { format: "personal-ai-album", version: 1, exportedAt: new Date().toISOString(), albums, photos: backupPhotos };
+    const file = new Blob([JSON.stringify(payload)], { type: "application/json" }), url = URL.createObjectURL(file), link = document.createElement("a");
+    link.href = url; link.download = `personal-album-${new Date().toISOString().slice(0, 10)}.album-backup.json`; link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000); showToast("백업 파일을 저장했어요.");
+  } catch { showToast("백업 파일 생성에 실패했어요."); }
+  finally { el.exportBackup.disabled = false; }
+}
+
+async function importBackup(file) {
+  if (!file) return;
+  if (!confirm("백업의 사진과 앨범을 현재 데이터에 추가할까요? 같은 항목은 백업 내용으로 갱신됩니다.")) { el.backupInput.value = ""; return; }
+  showToast("백업을 확인하고 있어요.");
+  try {
+    const payload = JSON.parse(await file.text());
+    if (payload.format !== "personal-ai-album" || payload.version !== 1 || !Array.isArray(payload.photos) || !Array.isArray(payload.albums)) throw new Error("지원하지 않는 백업입니다.");
+    for (const album of payload.albums) { if (!album.id || !album.name) throw new Error("앨범 정보가 올바르지 않습니다."); await saveAlbum(album); }
+    for (const item of payload.photos) {
+      if (!item.id || !item.dataUrl) throw new Error("사진 정보가 올바르지 않습니다.");
+      const { dataUrl, ...metadata } = item; await savePhoto({ ...metadata, blob: dataUrlToBlob(dataUrl) });
+    }
+    [photos, albums] = await Promise.all([getPhotos(), getAlbums()]); render(); showToast(`${payload.photos.length}장의 사진을 복원했어요.`);
+  } catch (error) { showToast(error.message || "백업 파일을 불러오지 못했어요."); }
+  finally { el.backupInput.value = ""; }
 }
 
 function currentPhotos() {
@@ -50,6 +111,7 @@ function render() {
   el.favoriteCount.textContent = photos.filter((photo) => photo.favorite).length;
   el.peopleCount.textContent = new Set(photos.flatMap((photo) => photo.people ?? [])).size;
   el.empty.hidden = visible.length > 0;
+  updateStorageUsage().catch(() => {});
   const groups = visible.reduce((map, photo) => { const date = formatDate(photo.createdAt); if (!map.has(date)) map.set(date, []); map.get(date).push(photo); return map; }, new Map());
   groups.forEach((items, date) => {
     const group = document.createElement("section"), heading = document.createElement("h2"), grid = document.createElement("div");
@@ -100,6 +162,8 @@ el.albumForm.addEventListener("submit", async (event) => {
   for (const photo of photos.filter((item) => selectedPhotoIds.has(item.id))) { photo.albumIds = [...new Set([...(photo.albumIds ?? []), album.id])]; await savePhoto(photo); }
   el.albumDialog.close(); activeAlbumId = album.id; stopSelection(); showToast(`‘${name}’ 앨범을 만들었어요.`);
 });
+el.exportBackup.addEventListener("click", exportBackup);
+el.backupInput.addEventListener("change", (event) => importBackup(event.target.files[0]));
 $("#settingsButton").addEventListener("click", () => el.infoDialog.showModal());
 $("#closeInfo").addEventListener("click", () => el.infoDialog.close());
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");

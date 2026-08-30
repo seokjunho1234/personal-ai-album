@@ -51,6 +51,19 @@
         <div id="albumList" class="album-list"></div>
       </section>
 
+      <section class="backup-panel" aria-label="백업 및 복원">
+        <div>
+          <p class="eyebrow">내 데이터</p>
+          <h2>백업과 복원</h2>
+          <p id="storageUsage">저장 공간을 확인하고 있어요.</p>
+        </div>
+        <div class="backup-actions">
+          <button id="exportBackup" class="backup-button">백업 파일 저장</button>
+          <label for="backupInput" class="backup-button">백업 불러오기</label>
+          <input id="backupInput" type="file" accept="application/json,.json,.album-backup" hidden />
+        </div>
+      </section>
+
       <section id="selectionBar" class="selection-bar" hidden>
         <strong id="selectionCount">0장 선택</strong>
         <div><button id="cancelSelection">취소</button><button id="makeAlbumButton" class="secondary-button" disabled>새 앨범 만들기</button></div>
