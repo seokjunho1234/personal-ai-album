@@ -1,10 +1,11 @@
-import { getAlbums, getPhotos, removePhoto, saveAlbum, savePhoto } from "./db.js";
+import { getAlbums, getPhotos, removeAlbum, removePhoto, saveAlbum, savePhoto } from "./db.js";
 
 const $ = (selector) => document.querySelector(selector);
 const el = {
   input: $("#photoInput"), gallery: $("#gallery"), empty: $("#emptyState"), photoCount: $("#photoCount"), peopleCount: $("#peopleCount"), favoriteCount: $("#favoriteCount"),
   dialog: $("#photoDialog"), dialogImage: $("#dialogImage"), dialogVideo: $("#dialogVideo"), heroSlideshow: $("#heroSlideshow"), favoriteButton: $("#favoriteButton"), deleteButton: $("#deleteButton"), closeDialog: $("#closeDialog"), toast: $("#toast"), infoDialog: $("#infoDialog"),
   albumList: $("#albumList"), selectButton: $("#selectPhotosButton"), selectionBar: $("#selectionBar"), selectionCount: $("#selectionCount"), cancelSelection: $("#cancelSelection"), makeAlbum: $("#makeAlbumButton"),
+  albumActions: $("#albumActions"), activeAlbumName: $("#activeAlbumName"), renameAlbum: $("#renameAlbum"), deleteAlbum: $("#deleteAlbum"),
   deleteSelected: $("#deleteSelected"),
   albumDialog: $("#albumDialog"), albumForm: $("#albumForm"), albumName: $("#albumName"), albumSummary: $("#albumSummary"), albumError: $("#albumError"), cancelAlbum: $("#cancelAlbum"),
   exportBackup: $("#exportBackup"), backupInput: $("#backupInput"), storageUsage: $("#storageUsage"),
@@ -13,6 +14,7 @@ const el = {
 };
 
 let photos = [], albums = [], selectedId = null, activeFilter = "all", activeAlbumId = null, selectionMode = false;
+let editingAlbumId = null;
 let selectedPhotoIds = new Set(), objectUrls = [];
 let heroTimer = null;
 let toastTimer = null;
@@ -177,6 +179,9 @@ function renderAlbums() {
       button.addEventListener("click", () => { activeAlbumId = album.id; render(); showToast(`‘${album.name}’ 앨범을 열었어요.`); });
       el.albumList.append(button);
     });
+  const activeAlbum = albums.find((album) => album.id === activeAlbumId);
+  el.albumActions.hidden = !activeAlbum;
+  el.activeAlbumName.textContent = activeAlbum ? `‘${activeAlbum.name}’ 관리` : "";
 }
 
 function render() {
@@ -260,7 +265,9 @@ el.deleteSelected.addEventListener("click", async () => {
 });
 el.makeAlbum.addEventListener("click", () => {
   if (!selectedPhotoIds.size) { showToast("앨범에 넣을 사진을 먼저 선택해 주세요."); return; }
+  editingAlbumId = null;
   el.albumName.value = ""; el.albumError.textContent = ""; el.albumSummary.textContent = `선택한 사진·비디오 ${selectedPhotoIds.size}개로 앨범을 만듭니다.`;
+  el.albumForm.querySelector("h2").textContent = "새 앨범"; el.albumForm.querySelector('[type="submit"]').textContent = "만들기";
   el.albumDialog.showModal(); window.setTimeout(() => el.albumName.focus(), 100);
 });
 el.cancelAlbum.addEventListener("click", () => el.albumDialog.close());
@@ -268,15 +275,38 @@ el.albumForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const name = el.albumName.value.trim(), chosenIds = [...selectedPhotoIds], submitButton = el.albumForm.querySelector('[type="submit"]');
   if (!name) { el.albumError.textContent = "앨범 이름을 입력해 주세요."; return; }
-  if (!chosenIds.length) { el.albumError.textContent = "선택한 사진이 없습니다. 다시 선택해 주세요."; return; }
-  submitButton.disabled = true; submitButton.textContent = "만드는 중"; el.albumError.textContent = "";
+  if (!editingAlbumId && !chosenIds.length) { el.albumError.textContent = "선택한 사진이 없습니다. 다시 선택해 주세요."; return; }
+  submitButton.disabled = true; submitButton.textContent = "저장 중"; el.albumError.textContent = "";
   try {
+    if (editingAlbumId) {
+      const album = albums.find((item) => item.id === editingAlbumId);
+      if (!album) throw new Error("앨범을 찾을 수 없습니다.");
+      album.name = name; album.updatedAt = Date.now(); await saveAlbum(album);
+      editingAlbumId = null; el.albumDialog.close(); render(); showToast(`앨범 이름을 ‘${name}’(으)로 바꿨어요.`); return;
+    }
     const album = { id: makeId("album"), name, createdAt: Date.now() };
     await saveAlbum(album);
     for (const photo of photos.filter((item) => chosenIds.includes(item.id))) { photo.albumIds = [...new Set([...(photo.albumIds ?? []), album.id])]; await savePhoto(photo); }
     albums.push(album); el.albumDialog.close(); activeAlbumId = album.id; stopSelection(); showToast(`‘${name}’ 앨범을 만들었어요.`);
   } catch (error) { el.albumError.textContent = `앨범을 만들지 못했습니다: ${error.message || "저장소 오류"}`; }
   finally { submitButton.disabled = false; submitButton.textContent = "만들기"; }
+});
+el.renameAlbum.addEventListener("click", () => {
+  const album = albums.find((item) => item.id === activeAlbumId); if (!album) return;
+  editingAlbumId = album.id; el.albumName.value = album.name; el.albumError.textContent = ""; el.albumSummary.textContent = "새로운 앨범 이름을 입력해 주세요.";
+  el.albumForm.querySelector("h2").textContent = "앨범 이름 수정"; el.albumForm.querySelector('[type="submit"]').textContent = "저장";
+  el.albumDialog.showModal(); window.setTimeout(() => { el.albumName.focus(); el.albumName.select(); }, 100);
+});
+el.deleteAlbum.addEventListener("click", async () => {
+  const album = albums.find((item) => item.id === activeAlbumId); if (!album) return;
+  if (!confirm(`‘${album.name}’ 앨범을 삭제할까요?\n사진과 비디오는 삭제되지 않고 모든 사진에 그대로 남습니다.`)) return;
+  el.deleteAlbum.disabled = true;
+  try {
+    await removeAlbum(album.id);
+    for (const photo of photos.filter((item) => item.albumIds?.includes(album.id))) { photo.albumIds = photo.albumIds.filter((id) => id !== album.id); await savePhoto(photo); }
+    albums = albums.filter((item) => item.id !== album.id); activeAlbumId = null; render(); showToast(`‘${album.name}’ 앨범을 삭제했어요. 사진은 그대로 보관됩니다.`);
+  } catch (error) { showToast(`앨범 삭제에 실패했습니다: ${error.message || "저장소 오류"}`); }
+  finally { el.deleteAlbum.disabled = false; }
 });
 el.exportBackup.addEventListener("click", exportBackup);
 el.backupInput.addEventListener("change", (event) => importBackup(event.target.files[0]));

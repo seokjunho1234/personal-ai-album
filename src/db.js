@@ -38,3 +38,4 @@ export const savePhoto = (photo) => runTransaction(PHOTO_STORE, "readwrite", (st
 export const removePhoto = (id) => runTransaction(PHOTO_STORE, "readwrite", (store) => store.delete(id));
 export const getAlbums = () => runTransaction(ALBUM_STORE, "readonly", (store) => store.getAll());
 export const saveAlbum = (album) => runTransaction(ALBUM_STORE, "readwrite", (store) => store.put(album));
+export const removeAlbum = (id) => runTransaction(ALBUM_STORE, "readwrite", (store) => store.delete(id));
