@@ -43,7 +43,18 @@
         <button class="filter active" data-filter="all">전체</button>
         <button class="filter" data-filter="favorites">즐겨찾기</button>
         <button class="filter" data-filter="people">인물</button>
+        <button class="filter select-trigger" id="selectPhotosButton">사진 선택</button>
       </nav>
+
+      <section class="album-section" aria-label="내 앨범">
+        <div class="section-heading"><h2>내 앨범</h2><span>사진을 골라 새 앨범으로 묶어보세요</span></div>
+        <div id="albumList" class="album-list"></div>
+      </section>
+
+      <section id="selectionBar" class="selection-bar" hidden>
+        <strong id="selectionCount">0장 선택</strong>
+        <div><button id="cancelSelection">취소</button><button id="makeAlbumButton" class="secondary-button" disabled>새 앨범 만들기</button></div>
+      </section>
 
       <section id="emptyState" class="empty-state">
         <div class="empty-icon">♡</div>
@@ -69,6 +80,15 @@
       <p>현재 버전은 원본 사진과 앨범 정보를 이 기기의 브라우저 저장소에 보관합니다.</p>
       <p>중요한 사진의 유일한 백업 용도로 사용하지 마세요. 다음 단계에서 MYBOX 백업과 기기 내 얼굴 분류를 연결할 예정입니다.</p>
       <button id="closeInfo" class="primary-button">확인</button>
+    </dialog>
+
+    <dialog id="albumDialog" class="info-dialog album-dialog">
+      <form id="albumForm" method="dialog">
+        <h2>새 앨범</h2>
+        <label for="albumName">앨범 이름</label>
+        <input id="albumName" name="albumName" maxlength="40" placeholder="예: 제주도 여행" autocomplete="off" required />
+        <div class="form-actions"><button id="cancelAlbum" type="button">취소</button><button class="secondary-button" type="submit">만들기</button></div>
+      </form>
     </dialog>
 
     <div id="toast" class="toast" role="status"></div>
