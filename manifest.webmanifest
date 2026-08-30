@@ -1,0 +1,12 @@
+{
+  "name": "소중한 순간 - 개인 AI 앨범",
+  "short_name": "소중한 순간",
+  "description": "사진을 기기에 보관하고 정리하는 개인 앨범",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f2ea",
+  "theme_color": "#f7f2ea",
+  "icons": [{ "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
